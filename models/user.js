@@ -15,6 +15,11 @@ const userSchema = new mongoose.Schema({
   },
   avatar: {
     type: String,
+    validate: {
+      validator(v) {
+        return /\b((http|https):\/\/?)[^\s()<>]+(?:\([\w\d]+\)|([^[:punct:]\s]|\/?))/g.test(v);
+      },
+    },
     required: true,
   },
 });

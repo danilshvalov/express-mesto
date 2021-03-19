@@ -12,7 +12,8 @@ const dispatchCardIdError = (err) => dispatchError(err, IncorrectCardId);
 const parseError = (err) => {
   const {message} = err;
   if (err instanceof IncorrectLikeData
-    || err instanceof IncorrectCardData) {
+    || err instanceof IncorrectCardData
+    || err instanceof IncorrectCardId) {
     return {code: 400, message};
   }
   if (err instanceof CardIdNotFound) {
