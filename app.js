@@ -4,7 +4,7 @@ const bodyParser = require('body-parser');
 const {middlewareErrorHandler} = require('./utils/utils');
 
 const {PORT = 3000} = process.env;
-const devId = '605130289b8e22245856761f';
+const devId = '60509177bb907f05d41893bf';
 
 const app = express();
 

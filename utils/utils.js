@@ -10,7 +10,7 @@ module.exports.dispatchError = (err, NewErrorType) => {
 
 module.exports.middlewareErrorHandler = (err, req, res, next) => {
   if (err) {
-    res.status(500)
+    res.status(400)
       .send({
         message: 'Во время обработки запроса произошла ошибка. Проверьте правильность запроса',
       });

@@ -26,6 +26,22 @@ const parseError = (err) => {
   return {code: 500, message};
 };
 
+// Ограничиваем количество возвращаемых ключей
+// чтобы клиент получал только то, что нужно
+
+const getUserData = ({
+  name,
+  about,
+  avatar,
+  _id,
+}) => (
+  {
+    name,
+    about,
+    avatar,
+    _id,
+  });
+
 module.exports.validateUserId = async (req, res, next) => {
   User.findById(req.params.userId)
     .orFail(new UserIdNotFound())
@@ -41,7 +57,7 @@ module.exports.validateUserId = async (req, res, next) => {
 module.exports.getAllUsers = (req, res) => {
   User.find({})
     .then((data) => {
-      res.send(data);
+      res.send(data.map((item) => (getUserData(item))));
     })
     .catch((err) => {
       const {code, message} = parseError(err);
@@ -52,7 +68,7 @@ module.exports.getAllUsers = (req, res) => {
 module.exports.getUser = (req, res) => {
   User.findById(req.params.userId)
     .then((data) => {
-      res.send(data);
+      res.send(getUserData(data));
     })
     .catch((err) => {
       const {code, message} = parseError(err);
@@ -64,7 +80,7 @@ module.exports.createUser = (req, res) => {
   const {name, about, avatar} = req.body;
   User.create({name, about, avatar})
     .then((data) => {
-      res.send(data);
+      res.send(getUserData(data));
     })
     .catch((err) => {
       const {code, message} = parseError(dispatchProfileDataError(err));
@@ -77,7 +93,7 @@ module.exports.updateProfile = (req, res) => {
   User.findByIdAndUpdate(req.user._id, {name, about},
     updateParams)
     .then((data) => {
-      res.send(data);
+      res.send(getUserData(data));
     })
     .catch((err) => {
       const {code, message} = parseError(dispatchProfileDataError(err));
@@ -90,7 +106,7 @@ module.exports.updateAvatar = (req, res) => {
   User.findByIdAndUpdate(req.user._id, {avatar},
     updateParams)
     .then((data) => {
-      res.send(data);
+      res.send(getUserData(data));
     })
     .catch((err) => {
       const {code, message} = parseError(dispatchAvatarDataError(err));

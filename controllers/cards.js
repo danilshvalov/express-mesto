@@ -22,6 +22,25 @@ const parseError = (err) => {
   return {code: 500, message};
 };
 
+// Ограничиваем количество возвращаемых ключей
+// чтобы клиент получал только то, что нужно
+
+const getCardData = ({
+  likes,
+  _id,
+  name,
+  link,
+  owner,
+  createdAt,
+}) => ({
+  likes,
+  _id,
+  name,
+  link,
+  owner,
+  createdAt,
+});
+
 module.exports.validateCardId = (req, res, next) => {
   Card.findById(req.params.cardId).orFail(new CardIdNotFound()).then(() => {
     next();
@@ -33,7 +52,7 @@ module.exports.validateCardId = (req, res, next) => {
 
 module.exports.getCards = (req, res) => {
   Card.find({}).populate('owners', 'likes').then((data) => {
-    res.send(data);
+    res.send(data.map((item) => getCardData(item)));
   }).catch((err) => {
     const {code, message} = parseError(err);
     res.status(code).send({message});
@@ -44,7 +63,7 @@ module.exports.createCard = (req, res) => {
   const {name, link} = req.body;
   Card.create({name, link, owner: req.user._id})
     .then((data) => {
-      res.send(data);
+      res.send(getCardData(data));
     })
     .catch((err) => {
       const {code, message} = parseError(dispatchCardDataError(err));
@@ -55,7 +74,7 @@ module.exports.createCard = (req, res) => {
 module.exports.deleteCard = (req, res) => {
   Card.findByIdAndDelete(req.params.cardId)
     .then((data) => {
-      res.send(data);
+      res.send(getCardData(data));
     })
     .catch((err) => {
       const {code, message} = parseError(dispatchCardDataError(err));
@@ -66,7 +85,7 @@ module.exports.deleteCard = (req, res) => {
 module.exports.likeCard = (req, res) => {
   Card.findByIdAndUpdate(req.params.cardId, {$addToSet: {likes: req.user._id}},
     {new: true}).then((data) => {
-    res.send(data);
+    res.send(getCardData(data));
   }).catch((err) => {
     const {code, message} = parseError(dispatchLikeDataError(err));
     res.status(code).send({message});
@@ -79,7 +98,7 @@ module.exports.dislikeCard = (req, res) => {
     {$pull: {likes: req.user._id}},
     {new: true},
   ).then((data) => {
-    res.send(data);
+    res.send(getCardData(data));
   }).catch((err) => {
     const {code, message} = parseError(dispatchLikeDataError(err));
     res.status(code).send({message});
