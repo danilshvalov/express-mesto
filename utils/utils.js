@@ -1,14 +1,4 @@
-const mongoose = require('mongoose');
-
-module.exports.dispatchError = (err, NewErrorType) => {
-  if (err instanceof mongoose.Error.CastError
-    || err instanceof mongoose.Error.ValidationError) {
-    return new NewErrorType();
-  }
-  return err;
-};
-
-module.exports.middlewareErrorHandler = (err, req, res, next) => {
+module.exports.thirdPartyLibErrorHandler = (err, req, res, next) => {
   if (err) {
     res.status(400)
       .send({

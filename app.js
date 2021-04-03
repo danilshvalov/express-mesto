@@ -4,7 +4,7 @@ const cookieParser = require('cookie-parser');
 const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
 require('dotenv').config();
-const {middlewareErrorHandler} = require('./utils/utils');
+const {thirdPartyLibErrorHandler} = require('./utils/utils');
 const auth = require('./middlewares/auth');
 const {errorHandler} = require('./middlewares/error-handler');
 
@@ -15,14 +15,14 @@ const app = express();
 app.use(
   rateLimit({
     windowMs: 15 * 60 * 1000, // 15 минут
-    max: 100,
+    max: 100, // 100 запросов
   }),
 );
 app.use(helmet());
 app.use(express.json());
 app.use(express.urlencoded({extended: true}));
 app.use(cookieParser());
-app.use(middlewareErrorHandler);
+app.use(thirdPartyLibErrorHandler);
 
 mongoose.connect('mongodb://localhost:27017/mestodb', {
   useNewUrlParser: true,
