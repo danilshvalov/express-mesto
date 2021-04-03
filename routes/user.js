@@ -1,17 +1,20 @@
 const router = require('express').Router();
 const {
+  profileDataValidator,
+  avatarDataValidator,
+} = require('../validators/user');
+const {
   getAllUsers,
   getUser,
-  createUser,
-  validateUserId,
+  getCurrentUser,
   updateProfile,
   updateAvatar,
 } = require('../controllers/user');
 
 router.get('/', getAllUsers);
-router.get('/:userId', validateUserId, getUser);
-router.post('/', createUser);
-router.patch('/me', updateProfile); // валидация отключена, т.к. id прописан
-router.patch('/me/avatar', updateAvatar); // аналогично
+router.get('/me', getCurrentUser);
+router.get('/:userId', getUser);
+router.patch('/me', profileDataValidator, updateProfile);
+router.patch('/me/avatar', avatarDataValidator, updateAvatar);
 
 module.exports = router;

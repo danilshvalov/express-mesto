@@ -1,106 +1,51 @@
 const Card = require('../models/cards');
-const IncorrectCardData = require('../errors/IncorrectCardData');
-const IncorrectLikeData = require('../errors/IncorrectLikeData');
-const CardIdNotFound = require('../errors/CardIdNotFound');
-const IncorrectCardId = require('../errors/IncorrectCardId');
-const {dispatchError} = require('../utils/utils');
+const NotFoundError = require('../errors/NotFoundError');
 
-const dispatchLikeDataError = (err) => dispatchError(err, IncorrectLikeData);
-const dispatchCardDataError = (err) => dispatchError(err, IncorrectCardData);
-const dispatchCardIdError = (err) => dispatchError(err, IncorrectCardId);
-
-const parseError = (err) => {
-  const {message} = err;
-  if (err instanceof IncorrectLikeData
-    || err instanceof IncorrectCardData
-    || err instanceof IncorrectCardId) {
-    return {code: 400, message};
-  }
-  if (err instanceof CardIdNotFound) {
-    return {code: 404, message};
-  }
-  return {code: 500, message};
-};
-
-// Ограничиваем количество возвращаемых ключей
-// чтобы клиент получал только то, что нужно
-
-const getCardData = ({
-  likes,
-  _id,
-  name,
-  link,
-  owner,
-  createdAt,
-}) => ({
-  likes,
-  _id,
-  name,
-  link,
-  owner,
-  createdAt,
-});
-
-module.exports.validateCardId = (req, res, next) => {
-  Card.findById(req.params.cardId).orFail(new CardIdNotFound()).then(() => {
-    next();
-  }).catch((err) => {
-    const {code, message} = parseError(dispatchCardIdError(err));
-    res.status(code).send({message});
-  });
-};
-
-module.exports.getCards = (req, res) => {
+module.exports.getCards = (req, res, next) => {
   Card.find({}).populate('owners', 'likes').then((data) => {
-    res.send(data.map((item) => getCardData(item)));
-  }).catch((err) => {
-    const {code, message} = parseError(err);
-    res.status(code).send({message});
-  });
+    res.send(data);
+  }).catch(next);
 };
 
-module.exports.createCard = (req, res) => {
+module.exports.createCard = (req, res, next) => {
   const {name, link} = req.body;
   Card.create({name, link, owner: req.user._id})
     .then((data) => {
-      res.send(getCardData(data));
+      res.send(data);
     })
-    .catch((err) => {
-      const {code, message} = parseError(dispatchCardDataError(err));
-      res.status(code).send({message});
-    });
+    .catch(next);
 };
 
-module.exports.deleteCard = (req, res) => {
-  Card.findByIdAndDelete(req.params.cardId)
+module.exports.deleteCard = (req, res, next) => {
+  const {cardId} = req.params;
+  Card.deleteCardAsOwner({cardId, userId: req.user._id})
     .then((data) => {
-      res.send(getCardData(data));
+      res.send(data);
     })
-    .catch((err) => {
-      const {code, message} = parseError(dispatchCardDataError(err));
-      res.status(code).send({message});
-    });
+    .catch(next);
 };
 
-module.exports.likeCard = (req, res) => {
-  Card.findByIdAndUpdate(req.params.cardId, {$addToSet: {likes: req.user._id}},
+module.exports.likeCard = (req, res, next) => {
+  const {cardId} = req.params;
+  Card.findByIdAndUpdate(cardId, {$addToSet: {likes: req.user._id}},
     {new: true}).then((data) => {
-    res.send(getCardData(data));
-  }).catch((err) => {
-    const {code, message} = parseError(dispatchLikeDataError(err));
-    res.status(code).send({message});
-  });
+    if (!data) {
+      throw new NotFoundError(`Карточка с id «${cardId}» не найдена`);
+    }
+    res.send(data);
+  }).catch(next);
 };
 
-module.exports.dislikeCard = (req, res) => {
+module.exports.dislikeCard = (req, res, next) => {
+  const {cardId} = req.params;
   Card.findByIdAndUpdate(
-    req.params.cardId,
+    cardId,
     {$pull: {likes: req.user._id}},
     {new: true},
   ).then((data) => {
-    res.send(getCardData(data));
-  }).catch((err) => {
-    const {code, message} = parseError(dispatchLikeDataError(err));
-    res.status(code).send({message});
-  });
+    if (!data) {
+      throw new NotFoundError(`Карточка с id «${cardId}» не найдена`);
+    }
+    res.send(data);
+  }).catch(next);
 };

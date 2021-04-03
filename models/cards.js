@@ -1,4 +1,9 @@
+// libs
 const mongoose = require('mongoose');
+// errors
+const BadRequestError = require('../errors/BadRequestError');
+const ForbiddenError = require('../errors/ForbiddenError');
+const NotFoundError = require('../errors/NotFoundError');
 
 const cardSchema = new mongoose.Schema({
   name: {
@@ -11,7 +16,9 @@ const cardSchema = new mongoose.Schema({
     type: String,
     validate: {
       validator(v) {
-        return /\b((http|https):\/\/?)[^\s()<>]+(?:\([\w\d]+\)|([^[:punct:]\s]|\/?))/g.test(v);
+        return /\b((http|https):\/\/?)[^\s()<>]+(?:\([\w\d]+\)|([^[:punct:]\s]|\/?))/g.test(
+          v,
+        );
       },
     },
     required: true,
@@ -31,5 +38,24 @@ const cardSchema = new mongoose.Schema({
     default: Date.now,
   },
 });
+
+// проверяем права пользователя, если все хорошо - возвращаем id карты
+cardSchema.statics.deleteCardAsOwner = function ({cardId, userId}) {
+  if (!cardId || !userId) {
+    throw new BadRequestError('Переданы некорректные данные для удаления карточки');
+  }
+  return this.findById(cardId)
+    .then((card) => {
+      if (!card) {
+        throw new NotFoundError(`Карточка с id «${cardId}» не найдена`);
+      }
+      if (card.owner !== userId) {
+        throw new ForbiddenError(
+          'У вас недостаточно прав для удаления этой карточки',
+        );
+      }
+      return this.findByIdAndDelete(cardId);
+    });
+};
 
 module.exports = mongoose.model('card', cardSchema);

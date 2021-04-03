@@ -1,115 +1,142 @@
+// libs
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+// models
 const User = require('../models/user');
-const UserIdNotFound = require('../errors/UserIdNotFound');
-const IncorrectUserId = require('../errors/IncorrectUserId');
-const IncorrectProfileData = require('../errors/IncorrectProfileData');
-const IncorrectAvatarData = require('../errors/IncorrectAvatarData');
-const {dispatchError} = require('../utils/utils');
+// errors
+const NotFoundError = require('../errors/NotFoundError');
+const BadRequestError = require('../errors/BadRequestError');
+const ConflictError = require('../errors/ConflictError');
+const InternalServerError = require('../errors/InternalServerError');
+// temp
+const {secretKey} = require('../utils/utils');
 
+// constants
 const updateParams = {new: true, runValidators: true, upsert: true};
+const tokenDuration = 1000 * 3600 * 24 * 7; // 1 неделя
+//                     1000ms->1h->24h->7d
 
-const dispatchUserIdError = (err) => dispatchError(err, IncorrectUserId);
-const dispatchProfileDataError = (err) => dispatchError(err,
-  IncorrectProfileData);
-const dispatchAvatarDataError = (err) => dispatchError(err,
-  IncorrectAvatarData);
+// controllers
+const getUserById = (userId) => User.findById(userId)
+  .catch(() => {
+    throw new BadRequestError(
+      'Переданы некорректные данные для получения пользователя',
+    );
+  });
 
-const parseError = (err) => {
-  const {message} = err;
-  if (err instanceof IncorrectProfileData
-    || err instanceof IncorrectAvatarData
-    || err instanceof IncorrectUserId) {
-    return {code: 400, message};
-  }
-  if (err instanceof UserIdNotFound) {
-    return {code: 404, message};
-  }
-  return {code: 500, message};
+module.exports.getAllUsers = (req, res, next) => {
+  User.find({})
+    .then((data) => {
+      res.send(data);
+    })
+    .catch(next);
 };
 
-// Ограничиваем количество возвращаемых ключей
-// чтобы клиент получал только то, что нужно
+module.exports.getUser = (req, res, next) => {
+  const {userId} = req.params;
+  getUserById(userId).then((data) => {
+    if (!data) {
+      throw new NotFoundError(`Пользователь с id «${userId}» не найден`);
+    }
+    res.send(data);
+  }).catch(next);
+};
 
-const getUserData = ({
-  name,
-  about,
-  avatar,
-  _id,
-}) => (
-  {
+module.exports.getCurrentUser = (req, res, next) => {
+  const userId = req.user._id;
+  getUserById(userId).then((data) => {
+    // если каким-то чудом пользователя с id текущего пользователя не существует
+    // бросаем ошибку сервера ¯\_(ツ)_/¯
+    if (!data) {
+      throw new InternalServerError('Произошла непредвиденная ошибка');
+    }
+    res.send(data);
+  }).catch(next);
+};
+
+module.exports.createUser = (req, res, next) => {
+  const {
     name,
     about,
     avatar,
-    _id,
-  });
+    email,
+    password,
+  } = req.body;
 
-module.exports.validateUserId = async (req, res, next) => {
-  User.findById(req.params.userId)
-    .orFail(new UserIdNotFound())
-    .then(() => {
-      next();
+  bcrypt.hash(password, 10)
+    .then((hash) => User.create({
+      email,
+      password: hash,
+      name,
+      about,
+      avatar,
+    }))
+    .then(({_id}) => {
+      res.send({
+        _id,
+        name,
+        about,
+        avatar,
+        email,
+      });
     })
     .catch((err) => {
-      const {code, message} = parseError(dispatchUserIdError(err));
-      res.status(code).send({message});
-    });
-};
-
-module.exports.getAllUsers = (req, res) => {
-  User.find({})
-    .then((data) => {
-      res.send(data.map((item) => (getUserData(item))));
+      if (err.name === 'ValidationError') {
+        throw new BadRequestError(
+          'Переданы некорректные данные для создания пользователя',
+        );
+      } else if (err.name === 'MongoError' && err.code === 11000) {
+        throw new ConflictError(`Пользователь с email «${email}» уже существует`);
+      }
     })
-    .catch((err) => {
-      const {code, message} = parseError(err);
-      res.status(code).send({message});
-    });
+    .catch(next);
 };
 
-module.exports.getUser = (req, res) => {
-  User.findById(req.params.userId)
-    .then((data) => {
-      res.send(getUserData(data));
-    })
-    .catch((err) => {
-      const {code, message} = parseError(err);
-      res.status(code).send({message});
-    });
-};
-
-module.exports.createUser = (req, res) => {
-  const {name, about, avatar} = req.body;
-  User.create({name, about, avatar})
-    .then((data) => {
-      res.send(getUserData(data));
-    })
-    .catch((err) => {
-      const {code, message} = parseError(dispatchProfileDataError(err));
-      res.status(code).send({message});
-    });
-};
-
-module.exports.updateProfile = (req, res) => {
+module.exports.updateProfile = (req, res, next) => {
   const {name, about} = req.body;
   User.findByIdAndUpdate(req.user._id, {name, about},
     updateParams)
     .then((data) => {
-      res.send(getUserData(data));
+      res.send(data);
     })
     .catch((err) => {
-      const {code, message} = parseError(dispatchProfileDataError(err));
-      res.status(code).send({message});
-    });
+      if (err.name === 'ValidationError') {
+        throw new BadRequestError(
+          'Переданы некорректные данные для обновления профиля',
+        );
+      }
+    })
+    .catch(next);
 };
 
-module.exports.updateAvatar = (req, res) => {
+module.exports.updateAvatar = (req, res, next) => {
   const {avatar} = req.body;
   User.findByIdAndUpdate(req.user._id, {avatar},
     updateParams)
     .then((data) => {
-      res.send(getUserData(data));
+      res.send(data);
     })
-    .catch((err) => {
-      const {code, message} = parseError(dispatchAvatarDataError(err));
-      res.status(code).send({message});
-    });
+    .catch(next);
+};
+
+module.exports.login = (req, res, next) => {
+  const {email, password} = req.body;
+
+  User.findUserByCredentials(email, password)
+    .then((user) => {
+      const token = jwt.sign(
+        {_id: user._id},
+        secretKey,
+        {expiresIn: tokenDuration},
+      );
+
+      res
+        .cookie('jwt', token, {
+          maxAge: tokenDuration,
+          httpOnly: true,
+          sameSite: true,
+        })
+        .send({message: 'Вы успешно авторизовались'});
+    })
+    .catch(next);
 };

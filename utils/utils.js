@@ -18,3 +18,5 @@ module.exports.middlewareErrorHandler = (err, req, res, next) => {
     next();
   }
 };
+
+module.exports.secretKey = '4829756EA1464D5D756D7384D8996';
