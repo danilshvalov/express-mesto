@@ -8,6 +8,8 @@ const getCelebrateErrorMessage = (err) => {
 module.exports.errorHandler = (err, req, res, next) => {
   if (isCelebrateError(err)) {
     res.status(400).send({message: getCelebrateErrorMessage(err)});
+  } else if (err.name === 'CastError') {
+    res.status(400).send({message: 'Во время обработки запроса произошла ошибка. Проверьте правильность запроса'});
   } else if (!err.code) {
     res.status(500)
       .send(

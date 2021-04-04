@@ -4,6 +4,8 @@ const mongoose = require('mongoose');
 const BadRequestError = require('../errors/BadRequestError');
 const ForbiddenError = require('../errors/ForbiddenError');
 const NotFoundError = require('../errors/NotFoundError');
+// validator
+const {validateLink} = require('../validators/validation-utils');
 
 const cardSchema = new mongoose.Schema({
   name: {
@@ -16,9 +18,7 @@ const cardSchema = new mongoose.Schema({
     type: String,
     validate: {
       validator(v) {
-        return /\b((http|https):\/\/?)[^\s()<>]+(?:\([\w\d]+\)|([^[:punct:]\s]|\/?))/g.test(
-          v,
-        );
+        return validateLink(v);
       },
     },
     required: true,
@@ -49,7 +49,9 @@ cardSchema.statics.deleteCardAsOwner = function ({cardId, userId}) {
       if (!card) {
         throw new NotFoundError(`Карточка с id «${cardId}» не найдена`);
       }
-      if (card.owner !== userId) {
+      // сравнение не строгое, так как сравниваем разные типы
+      // eslint-disable-next-line eqeqeq
+      if (card.owner != userId) {
         throw new ForbiddenError(
           'У вас недостаточно прав для удаления этой карточки',
         );
