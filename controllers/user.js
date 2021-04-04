@@ -135,7 +135,7 @@ module.exports.login = (req, res, next) => {
           httpOnly: true,
           sameSite: true,
         })
-        .send({message: 'Вы успешно авторизовались'});
+        .send({token});
     })
     .catch(next);
 };
